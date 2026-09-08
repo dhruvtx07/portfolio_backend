@@ -5,7 +5,6 @@ const dotenv = require('dotenv');
 const Sequelize = require('sequelize');
 const routes = require('./routes/routes');
 const logger = require('./logger');
-const multer = require('multer');
 const { sendErrorEmail } = require('./utils/emailUtils');
 
 const { handleServerError } = require('./controllers/errorHandler');
@@ -118,7 +117,7 @@ process.on('uncaughtException', async (err) => {
   const fakeRes = { headersSent: true, status: () => fakeRes, json: () => {}, send: () => {} };
   await handleServerError(fakeReq, fakeRes, err, false);
 
-  await sendErrorEmail('NS: Uncaught Exception app.js ERROR!!', err);
+  await sendErrorEmail('Portfolio Backend: Uncaught Exception app.js ERROR!!', err);
   process.exit(1);
 });
 
@@ -131,7 +130,7 @@ process.on('unhandledRejection', async (err) => {
   const fakeRes = { headersSent: true, status: () => fakeRes, json: () => {}, send: () => {} };
   await handleServerError(fakeReq, fakeRes, err, false);
 
-  await sendErrorEmail('NS: Unhandled Rejection app.js ERROR!!', err);
+  await sendErrorEmail('Portfolio Backend: Unhandled Rejection app.js ERROR!!', err);
   process.exit(1);
 });
 
@@ -164,49 +163,4 @@ if (process.env.NODE_ENV !== 'test') {
     console.log('Node.js application started.');
   });
 
-  // Order reconciliation job — runs daily, compares Shopify vs DB for last 24h
-  if (process.env.ORDER_RECONCILIATION_ENABLED === 'true') {
-    const orderReconciliationService = require('./services/orderReconciliationService');
-    const RECON_HOUR = parseInt(process.env.ORDER_RECONCILIATION_HOUR, 10) || 6; // default 06:00
-    const DAY_MS = 24 * 60 * 60 * 1000;
-
-    const msUntilNextRecon = () => {
-      const now  = new Date();
-      const next = new Date(now);
-      next.setHours(RECON_HOUR, 0, 0, 0);
-      if (next <= now) next.setDate(next.getDate() + 1);
-      return next - now;
-    };
-
-    setTimeout(function scheduleRecon() {
-      orderReconciliationService.run().catch(err => logger.error('orderReconciliation failed: ' + err.message));
-      setTimeout(scheduleRecon, DAY_MS);
-    }, msUntilNextRecon());
-
-    logger.info(`orderReconciliation scheduled — daily at ${RECON_HOUR}:00`);
-  }
-
-  // Analytics purge job — controlled entirely via .env
-  if (process.env.ANALYTICS_PURGE_ENABLED === 'true') {
-    const analyticsPurgeService = require('./services/analyticsPurgeService');
-    const PURGE_DAY  = parseInt(process.env.ANALYTICS_PURGE_DAY, 10)  || 0; // 0=Sun,1=Mon,...,6=Sat
-    const PURGE_HOUR = parseInt(process.env.ANALYTICS_PURGE_HOUR, 10) || 2; // 24h, default 02:00
-    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-
-    const msUntilNext = () => {
-      const now  = new Date();
-      const next = new Date(now);
-      const daysUntil = (PURGE_DAY - now.getDay() + 7) % 7 || 7;
-      next.setDate(now.getDate() + daysUntil);
-      next.setHours(PURGE_HOUR, 0, 0, 0);
-      return next - now;
-    };
-
-    setTimeout(function schedulePurge() {
-      analyticsPurgeService.purge().catch(err => logger.error('analyticsPurge failed: ' + err.message));
-      setTimeout(schedulePurge, WEEK_MS);
-    }, msUntilNext());
-
-    logger.info(`analyticsPurge scheduled — day ${PURGE_DAY}, hour ${PURGE_HOUR}:00`);
-  }
 }
