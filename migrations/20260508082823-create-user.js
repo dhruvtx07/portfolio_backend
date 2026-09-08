@@ -31,10 +31,6 @@ module.exports = {
       type: Sequelize.STRING,
       allowNull: true,
       },
-      profile_picture_url: {
-        type: Sequelize.STRING,
-        allowNull: true,
-      },
       state: {
         type: Sequelize.STRING
       },
